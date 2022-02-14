@@ -41,8 +41,8 @@ jobs:
         -SkipAutomaticLocation `
         -DevCmdArguments "`
         -arch=${{inputs.target-arch}} -host_arch=${{inputs.host-arch}} -winsdk=10.0.19041.0"
-        $Env:CC = "clang-cl"
-        $Env:CXX = "clang-cl"
+        $Env:CC = "cl"
+        $Env:CXX = "cl"
         git clone --branch llvmorg-13.0.0 --depth 1 https://github.com/llvm/llvm-project.git
         cmake -Bbuild -GNinja `
         -DCMAKE_SYSTEM_VERSION=10.0.19041.0 `
@@ -85,8 +85,8 @@ jobs:
         -SkipAutomaticLocation `
         -DevCmdArguments "`
         -arch=${{inputs.target-arch}} -host_arch=${{inputs.host-arch}} -winsdk=10.0.19041.0"
-        $Env:CC = "clang-cl"
-        $Env:CXX = "clang-cl"
+        $Env:CC = "cl"
+        $Env:CXX = "cl"
         git clone --branch llvmorg-13.0.0 --depth 1 https://github.com/llvm/llvm-project.git
         cmake -Bbuild -GNinja `
         -DCMAKE_SYSTEM_VERSION=10.0.19041.0 `
