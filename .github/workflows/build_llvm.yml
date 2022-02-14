@@ -41,6 +41,7 @@ jobs:
           -SkipAutomaticLocation `
           -DevCmdArguments "`
           -arch=${{inputs.target-arch}} -host_arch=${{inputs.host-arch}} -winsdk=10.0.19041.0"
+          cl /?
           $Env:CC = "cl"
           $Env:CXX = "cl"
           git clone --branch llvmorg-13.0.0 --depth 1 https://github.com/llvm/llvm-project.git
