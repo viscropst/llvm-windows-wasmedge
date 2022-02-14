@@ -7,6 +7,7 @@ on:
       description: the host arch to build
       type: string
       default: x64
+      required: false
     target-arch:
       description: the target arch to build
       type: string
@@ -16,6 +17,7 @@ on:
       description: llvm targets to build (use ';' to split)
       type: string
       default: X86
+      required: false
 
 jobs:
   build_withClang:
@@ -35,15 +37,20 @@ jobs:
       run: |
         $vsPath = (vswhere -latest -property installationPath)
         Import-Module (Join-Path $vsPath "Common7\Tools\Microsoft.VisualStudio.DevShell.dll")
-        Enter-VsDevShell -VsInstallPath $vsPath -SkipAutomaticLocation -DevCmdArguments "-arch=${{inputs.target-arch}} -host_arch=${{inputs.host-arch}} -winsdk=10.0.19041.0"
+        Enter-VsDevShell -VsInstallPath $vsPath `
+        -SkipAutomaticLocation `
+        -DevCmdArguments "`
+        -arch=${{inputs.target-arch}} -host_arch=${{inputs.host-arch}} -winsdk=10.0.19041.0"
         $Env:CC = "clang-cl"
         $Env:CXX = "clang-cl"
         git clone --branch llvmorg-13.0.0 --depth 1 https://github.com/llvm/llvm-project.git
-        cmake -Bbuild -GNinja -DCMAKE_SYSTEM_VERSION=10.0.19041.0 -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreadedDLL^
-        -DCMAKE_BUILD_TYPE=Release^
-        -DCPACK_GENERATOR=ZIP^
-        "-DCMAKE_INSTALL_PREFIX=$pwd\\prefix"^
-        -DLLVM_TARGETS_TO_BUILD="${{inputs.llvm-targets}}"^
+        cmake -Bbuild -GNinja `
+        -DCMAKE_SYSTEM_VERSION=10.0.19041.0 `
+        -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreadedDLL `
+        -DCMAKE_BUILD_TYPE=Release `
+        -DCPACK_GENERATOR=ZIP `
+        "-DCMAKE_INSTALL_PREFIX=$pwd\\prefix" `
+        -DLLVM_TARGETS_TO_BUILD="${{inputs.llvm-targets}}" `
         -DLLVM_ENABLE_PROJECTS="clang;lld" llvm-project\\llvm
         cmake --build build
 
@@ -74,15 +81,20 @@ jobs:
       run: |
         $vsPath = (vswhere -latest -property installationPath)
         Import-Module (Join-Path $vsPath "Common7\Tools\Microsoft.VisualStudio.DevShell.dll")
-        Enter-VsDevShell -VsInstallPath $vsPath -SkipAutomaticLocation -DevCmdArguments "-arch=${{inputs.target-arch}} -host_arch=${{inputs.host-arch}} -winsdk=10.0.19041.0"
+         Enter-VsDevShell -VsInstallPath $vsPath `
+        -SkipAutomaticLocation `
+        -DevCmdArguments "`
+        -arch=${{inputs.target-arch}} -host_arch=${{inputs.host-arch}} -winsdk=10.0.19041.0"
         $Env:CC = "clang-cl"
         $Env:CXX = "clang-cl"
         git clone --branch llvmorg-13.0.0 --depth 1 https://github.com/llvm/llvm-project.git
-        cmake -Bbuild -GNinja -DCMAKE_SYSTEM_VERSION=10.0.19041.0 -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreadedDLL^
-        -DCMAKE_BUILD_TYPE=Release^
-        -DCPACK_GENERATOR=ZIP^
-        "-DCMAKE_INSTALL_PREFIX=$pwd\\prefix"^
-        -DLLVM_TARGETS_TO_BUILD="${{inputs.llvm-targets}}"^^
+        cmake -Bbuild -GNinja `
+        -DCMAKE_SYSTEM_VERSION=10.0.19041.0 `
+        -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreadedDLL `
+        -DCMAKE_BUILD_TYPE=Release `
+        -DCPACK_GENERATOR=ZIP `
+        "-DCMAKE_INSTALL_PREFIX=$pwd\\prefix" `
+        -DLLVM_TARGETS_TO_BUILD="${{inputs.llvm-targets}}" `
         -DLLVM_ENABLE_PROJECTS="lld" llvm-project\\llvm
         cmake --build build
 
