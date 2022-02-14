@@ -1,110 +1,116 @@
 name: build_llvm
 
 on:
- workflow_call:
-   inputs:
-    host-arch:
-      description: the host arch to build
-      type: string
-      default: x64
-      required: false
-    target-arch:
-      description: the target arch to build
-      type: string
-      default: x64
-      required: true
-    llvm-targets:
-      description: llvm targets to build (use ';' to split)
-      type: string
-      default: X86
-      required: false
+  workflow_call:
+    inputs:
+      host-arch:
+        description: the host arch to build
+        type: string
+        default: x64
+        required: false
+      target-arch:
+        description: the target arch to build
+        type: string
+        default: x64
+        required: true
+      llvm-targets:
+        description: llvm targets to build (use ';' to split)
+        type: string
+        default: X86
+        required: false
 
 jobs:
   build_withClang:
     name: Build llvm on Windows with Clang
     runs-on: windows-latest
     steps:
-    - name: Install dependency
-      uses: crazy-max/ghaction-chocolatey@v1
-      with:
-        args: install cmake ninja vswhere
+      - name: Install dependency
+        uses: crazy-max/ghaction-chocolatey@v1
+        with:
+          args: install cmake ninja vswhere
 
-    - uses: GuillaumeFalourd/setup-windows10-sdk-action@v1
-      with:
-        sdk-version: 19041
+      - uses: GuillaumeFalourd/setup-windows10-sdk-action@v1
+        with:
+          sdk-version: 19041
 
-    - name: Build llvm
-      run: |
-        $vsPath = (vswhere -latest -property installationPath)
-        Import-Module (Join-Path $vsPath "Common7\Tools\Microsoft.VisualStudio.DevShell.dll")
-        Enter-VsDevShell -VsInstallPath $vsPath `
-        -SkipAutomaticLocation `
-        -DevCmdArguments "`
-        -arch=${{inputs.target-arch}} -host_arch=${{inputs.host-arch}} -winsdk=10.0.19041.0"
-        $Env:CC = "cl"
-        $Env:CXX = "cl"
-        git clone --branch llvmorg-13.0.0 --depth 1 https://github.com/llvm/llvm-project.git
-        cmake -Bbuild -GNinja `
-        -DCMAKE_SYSTEM_VERSION="10.0.19041.0" `
-        -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreadedDLL `
-        -DCMAKE_BUILD_TYPE=Release `
-        -DCPACK_GENERATOR=ZIP `
-        "-DCMAKE_INSTALL_PREFIX=$pwd\\prefix" `
-        -DLLVM_TARGETS_TO_BUILD="${{inputs.llvm-targets}}" `
-        -DLLVM_ENABLE_PROJECTS="clang;lld" llvm-project\\llvm
-        cmake --build build
+      - name: Build llvm
+        run: |
+          $vsPath = (vswhere -latest -property installationPath)
+          Import-Module (Join-Path $vsPath "Common7\Tools\Microsoft.VisualStudio.DevShell.dll")
+          Enter-VsDevShell -VsInstallPath $vsPath `
+          -SkipAutomaticLocation `
+          -DevCmdArguments "`
+          -arch=${{inputs.target-arch}} -host_arch=${{inputs.host-arch}} -winsdk=10.0.19041.0"
+          $Env:CC = "cl"
+          $Env:CXX = "cl"
+          git clone --branch llvmorg-13.0.0 --depth 1 https://github.com/llvm/llvm-project.git
+          cmake -Bbuild -GNinja `
+          -DCMAKE_SYSTEM_VERSION="10.0.19041.0" `
+          -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreadedDLL `
+          -DCMAKE_BUILD_TYPE=Release `
+          -DCPACK_GENERATOR=ZIP `
+          "-DCMAKE_INSTALL_PREFIX=$pwd\\prefix" `
+          -DLLVM_TARGETS_TO_BUILD="${{inputs.llvm-targets}}" `
+          -DLLVM_ENABLE_PROJECTS="clang;lld" llvm-project\\llvm
+          cmake --build build
 
-    - name: Package llvm
-      run: |
-        cmake --build build --target package
+      - name: Package llvm
+        run: |
+          cmake --build build --target package
 
-    - name: Upload Artifact
-      uses: actions/upload-artifact@v2
-      with:
-        name: llvm
-        path: build/*.zip
-        retention-days: 5
+      - name: Content list
+        uses: enricomarino/actions@v2
+        with:
+          source: build
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: llvm
+          path: build/*.zip
+          retention-days: 5
+
   buildLldOnly:
     name: Build llvm on Windows with lld only
     runs-on: windows-latest
     steps:
-    - name: Install dependency
-      uses: crazy-max/ghaction-chocolatey@v1
-      with:
-        args: install cmake ninja vswhere
+      - name: Install dependency
+        uses: crazy-max/ghaction-chocolatey@v1
+        with:
+          args: install cmake ninja vswhere
 
-    - uses: GuillaumeFalourd/setup-windows10-sdk-action@v1
-      with:
-        sdk-version: 19041
+      - uses: GuillaumeFalourd/setup-windows10-sdk-action@v1
+        with:
+          sdk-version: 19041
 
-    - name: Build llvm
-      run: |
-        $vsPath = (vswhere -latest -property installationPath)
-        Import-Module (Join-Path $vsPath "Common7\Tools\Microsoft.VisualStudio.DevShell.dll")
-         Enter-VsDevShell -VsInstallPath $vsPath `
-        -SkipAutomaticLocation `
-        -DevCmdArguments "`
-        -arch=${{inputs.target-arch}} -host_arch=${{inputs.host-arch}} -winsdk=10.0.19041.0"
-        $Env:CC = "cl"
-        $Env:CXX = "cl"
-        git clone --branch llvmorg-13.0.0 --depth 1 https://github.com/llvm/llvm-project.git
-        cmake -Bbuild -GNinja `
-        -DCMAKE_SYSTEM_VERSION="10.0.19041.0" `
-        -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreadedDLL `
-        -DCMAKE_BUILD_TYPE=Release `
-        -DCPACK_GENERATOR=ZIP `
-        "-DCMAKE_INSTALL_PREFIX=$pwd\\prefix" `
-        -DLLVM_TARGETS_TO_BUILD="${{inputs.llvm-targets}}" `
-        -DLLVM_ENABLE_PROJECTS="lld" llvm-project\\llvm
-        cmake --build build
+      - name: Build llvm
+        run: |
+          $vsPath = (vswhere -latest -property installationPath)
+          Import-Module (Join-Path $vsPath "Common7\Tools\Microsoft.VisualStudio.DevShell.dll")
+          Enter-VsDevShell -VsInstallPath $vsPath `
+          -SkipAutomaticLocation `
+          -DevCmdArguments "`
+          -arch=${{inputs.target-arch}} -host_arch=${{inputs.host-arch}} -winsdk=10.0.19041.0"
+          $Env:CC = "cl"
+          $Env:CXX = "cl"
+          git clone --branch llvmorg-13.0.0 --depth 1 https://github.com/llvm/llvm-project.git
+          cmake -Bbuild -GNinja `
+          -DCMAKE_SYSTEM_VERSION="10.0.19041.0" `
+          -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreadedDLL `
+          -DCMAKE_BUILD_TYPE=Release `
+          -DCPACK_GENERATOR=ZIP `
+          "-DCMAKE_INSTALL_PREFIX=$pwd\\prefix" `
+          -DLLVM_TARGETS_TO_BUILD="${{inputs.llvm-targets}}" `
+          -DLLVM_ENABLE_PROJECTS="lld" llvm-project\\llvm
+          cmake --build build
 
-    - name: Package llvm
-      run: |
-        cmake --build build --target package
+      - name: Package llvm
+        run: |
+          cmake --build build --target package
 
-    - name: Upload Artifact
-      uses: actions/upload-artifact@v2
-      with:
-        name: llvm
-        path: build/*.zip
-        retention-days: 5
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: llvm
+          path: build/*.zip
+          retention-days: 5
