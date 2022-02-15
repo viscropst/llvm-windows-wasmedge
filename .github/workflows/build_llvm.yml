@@ -33,15 +33,24 @@ jobs:
         with:
           sdk-version: 19041
 
-      - name: Build llvm
+      # replaces git clone with actions/checkout
+      # arg of command:
+      # --branch llvmorg-13.0.0 --depth 1 https://github.com/llvm/llvm-project.git
+      - uses: actions/checkout@v2
+        with:
+          repository: 'llvm/llvm-project'
+          ref: 'llvmorg-13.0.0'
+          fetch-depth: '1'
+
+      - name: Build llvm 
+        # -DLLVM_EXPORT_SYMBOLS_FOR_PLUGINS=ON -DLLVM_USE_CRT_RELEASE=MT inspired by
+        # https://hg.mozilla.org/integration/autoland/file/2f8a0c7b1abb7ceb7f195592cafe6918c92afa5c/build/build-clang/build-clang.py#l280 `
         run: |
           $vsPath = (vswhere -latest -property installationPath)
           Import-Module (Join-Path $vsPath "Common7\Tools\Microsoft.VisualStudio.DevShell.dll")
           Enter-VsDevShell -VsInstallPath $vsPath -SkipAutomaticLocation -DevCmdArguments "-arch=${{inputs.target-arch}} -host_arch=${{inputs.host-arch}} -winsdk=10.0.19041.0"
           $Env:CC = "cl"
           $Env:CXX = "cl"
-          git clone --branch llvmorg-13.0.0 --depth 1 https://github.com/llvm/llvm-project.git
-          # inspired by https://hg.mozilla.org/integration/autoland/file/2f8a0c7b1abb7ceb7f195592cafe6918c92afa5c/build/build-clang/build-clang.py#l280 `
           cmake -Bbuild -GNinja `
           -DCMAKE_SYSTEM_VERSION="10.0.19041.0" `
           -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreadedDLL `
@@ -52,7 +61,7 @@ jobs:
           -DLLVM_USE_CRT_RELEASE=MT `
           "-DCMAKE_INSTALL_PREFIX=$pwd\\prefix" `
           -DLLVM_TARGETS_TO_BUILD="${{inputs.llvm-targets}}" `
-          -DLLVM_ENABLE_PROJECTS="clang;lld" llvm-project\\llvm
+          -DLLVM_ENABLE_PROJECTS="clang;lld" llvm
           cmake --build build
 
       - name: Package llvm
