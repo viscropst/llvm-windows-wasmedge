@@ -54,7 +54,7 @@ jobs:
           -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreadedDLL `
           -DCMAKE_BUILD_TYPE=Release `
           -DCPACK_GENERATOR=ZIP `
-          -DCPACK_ARCHIVE_FILE_NAME="llvm.clang+lld.windows.${{inputs.host-arch}}_${{inputs.target-arch}}" `
+          -DCPACK_PACKAGE_NAME="llvm.clang+lld.windows.${{inputs.host-arch}}_${{inputs.target-arch}}" `
           -DLLVM_USE_CRT_RELEASE=MT `
           "-DCMAKE_INSTALL_PREFIX=$pwd\\prefix" `
           -DLLVM_TARGETS_TO_BUILD="${{inputs.llvm-targets}}" `
