@@ -43,8 +43,6 @@ jobs:
           fetch-depth: '1'
 
       - name: Build llvm 
-        # -DLLVM_EXPORT_SYMBOLS_FOR_PLUGINS=ON -DLLVM_USE_CRT_RELEASE=MT inspired by
-        # https://hg.mozilla.org/integration/autoland/file/2f8a0c7b1abb7ceb7f195592cafe6918c92afa5c/build/build-clang/build-clang.py#l280 `
         run: |
           $vsPath = (vswhere -latest -property installationPath)
           Import-Module (Join-Path $vsPath "Common7\Tools\Microsoft.VisualStudio.DevShell.dll")
@@ -57,7 +55,6 @@ jobs:
           -DCMAKE_BUILD_TYPE=Release `
           -DCPACK_GENERATOR=ZIP `
           -DCPACK_ARCHIVE_FILE_NAME="llvm.clang+lld.windows.${{inputs.host-arch}}_${{inputs.target-arch}}" `
-          -DLLVM_EXPORT_SYMBOLS_FOR_PLUGINS=ON `
           -DLLVM_USE_CRT_RELEASE=MT `
           -DLLVM_ENABLE_LIBXML2=ON `
           "-DCMAKE_INSTALL_PREFIX=$pwd\\prefix" `
