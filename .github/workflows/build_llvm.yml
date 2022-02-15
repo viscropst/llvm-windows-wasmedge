@@ -33,21 +33,35 @@ jobs:
         with:
           sdk-version: 19041
 
-      # replaces git clone with actions/checkout
+      # replaces git clone with actions/checkout submodules
       # arg of command:
       # --branch llvmorg-13.0.0 --depth 1 https://github.com/llvm/llvm-project.git
       - uses: actions/checkout@v2
         with:
-          repository: 'llvm/llvm-project'
-          ref: 'llvmorg-13.0.0'
+          submodules: 'true'
           fetch-depth: '1'
 
-      - name: Build llvm clang+lld
+      - name: Apply patch to llvm
+        run: |
+          cd src
+          git apply ../patch/0001-clang-fix-cmake-if-calls-for-CMAKE_OSX_SYSROOT.patch
+          cd ..
+
+      - name: Build llvm.clang+lld
         run: |
           $vsPath = (vswhere -latest -property installationPath)
           Import-Module (Join-Path $vsPath "Common7\Tools\Microsoft.VisualStudio.DevShell.dll")
           Enter-VsDevShell -VsInstallPath $vsPath -SkipAutomaticLocation -DevCmdArguments "-arch=${{inputs.target-arch}} -host_arch=${{inputs.host-arch}} -winsdk=10.0.19041.0"
           
+          echo "::group::fetch the third-party by vcpkg"
+          vcpkg/bootstrap-vcpkg.bat -disableMetrics
+          vcpkg/vcpkg install `
+          --triplet=${{inputs.target-arch}}-windows `
+          --host-triplet=${{inputs.host-arch}}-windows `
+          libxml2
+          $Env:CMAKE_TOOLCHAIN_FILE = "$pwd/vcpkg/scripts/buildsystems/vcpkg.cmake"
+          echo "::endgroup::"
+
           echo "::group::configure by cmake"
           $Env:CC = "cl"
           $Env:CXX = "cl"
@@ -61,14 +75,14 @@ jobs:
           -DLLVM_ENABLE_LIBXML2=ON `
           "-DCMAKE_INSTALL_PREFIX=$pwd\\prefix" `
           -DLLVM_TARGETS_TO_BUILD="${{inputs.llvm-targets}}" `
-          -DLLVM_ENABLE_PROJECTS="clang;lld" llvm
+          -DLLVM_ENABLE_PROJECTS="clang;lld" src\\llvm
           echo "::endgroup::"
           
           echo "::group::building clang"
           cmake --build build.clang+lld --clean-first -- -j 16
           echo "::endgroup::"
 
-      - name: Build llvm lld
+      - name: Build llvm.lld
         run: |
           $vsPath = (vswhere -latest -property installationPath)
           Import-Module (Join-Path $vsPath "Common7\Tools\Microsoft.VisualStudio.DevShell.dll")
