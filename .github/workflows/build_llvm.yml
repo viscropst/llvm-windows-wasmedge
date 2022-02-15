@@ -58,6 +58,7 @@ jobs:
           -DCPACK_GENERATOR=ZIP `
           -DCPACK_PACKAGE_NAME="llvm.clang+lld.${{inputs.target-arch}}" `
           -DLLVM_USE_CRT_RELEASE=MT `
+          -DLLVM_ENABLE_LIBXML2=ON `
           "-DCMAKE_INSTALL_PREFIX=$pwd\\prefix" `
           -DLLVM_TARGETS_TO_BUILD="${{inputs.llvm-targets}}" `
           -DLLVM_ENABLE_PROJECTS="clang;lld" llvm
@@ -87,6 +88,7 @@ jobs:
           -DCPACK_GENERATOR=ZIP `
           -DCPACK_PACKAGE_NAME="llvm.lld.${{inputs.target-arch}}" `
           -DLLVM_USE_CRT_RELEASE=MT `
+          -DLLVM_ENABLE_LIBXML2=ON `
           "-DCMAKE_INSTALL_PREFIX=$pwd\\prefix" `
           -DLLVM_TARGETS_TO_BUILD="${{inputs.llvm-targets}}" `
           -DLLVM_ENABLE_PROJECTS="lld" src\\llvm
