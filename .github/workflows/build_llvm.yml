@@ -60,7 +60,7 @@ jobs:
           "-DCMAKE_INSTALL_PREFIX=$pwd\\prefix" `
           -DLLVM_TARGETS_TO_BUILD="${{inputs.llvm-targets}}" `
           -DLLVM_ENABLE_PROJECTS="clang;lld" llvm
-          cmake --build build
+          cmake --build build --clean-first -- -j 16
 
       - name: Package llvm
         run: |
