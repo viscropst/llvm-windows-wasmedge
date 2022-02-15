@@ -27,7 +27,7 @@ jobs:
       - name: Install dependency
         uses: crazy-max/ghaction-chocolatey@v1
         with:
-          args: install cmake ninja vswhere gnuwin
+          args: install cmake ninja vswhere
 
       - uses: GuillaumeFalourd/setup-windows10-sdk-action@v1
         with:
@@ -41,13 +41,15 @@ jobs:
           $Env:CC = "cl"
           $Env:CXX = "cl"
           git clone --branch llvmorg-13.0.0 --depth 1 https://github.com/llvm/llvm-project.git
+          # inspired by https://hg.mozilla.org/integration/autoland/file/2f8a0c7b1abb7ceb7f195592cafe6918c92afa5c/build/build-clang/build-clang.py#l280 `
           cmake -Bbuild -GNinja `
           -DCMAKE_SYSTEM_VERSION="10.0.19041.0" `
           -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreadedDLL `
           -DCMAKE_BUILD_TYPE=Release `
           -DCPACK_GENERATOR=ZIP `
           -DCPACK_ARCHIVE_FILE_NAME="llvm.clang+lld.windows.${{inputs.host-arch}}_${{inputs.target-arch}}" `
-          -DLLVM_ENABLE_LIBXML2=ON `
+          -DLLVM_EXPORT_SYMBOLS_FOR_PLUGINS=ON `
+          -DLLVM_USE_CRT_RELEASE=MT `
           "-DCMAKE_INSTALL_PREFIX=$pwd\\prefix" `
           -DLLVM_TARGETS_TO_BUILD="${{inputs.llvm-targets}}" `
           -DLLVM_ENABLE_PROJECTS="clang;lld" llvm-project\\llvm
