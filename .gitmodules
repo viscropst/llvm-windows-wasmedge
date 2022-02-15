@@ -1,0 +1,6 @@
+[submodule "src"]
+	path = src
+	url = https://github.com/llvm/llvm-project.git
+[submodule "vcpkg"]
+	path = vcpkg
+	url = https://github.com/microsoft/vcpkg.git
