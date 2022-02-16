@@ -42,78 +42,80 @@ jobs:
           ref: 'llvmorg-13.0.0'
           fetch-depth: '1'
 
-      - name: Build llvm
+      - name: Build llvm clang+lld
         run: |
           $vsPath = (vswhere -latest -property installationPath)
           Import-Module (Join-Path $vsPath "Common7\Tools\Microsoft.VisualStudio.DevShell.dll")
           Enter-VsDevShell -VsInstallPath $vsPath -SkipAutomaticLocation -DevCmdArguments "-arch=${{inputs.target-arch}} -host_arch=${{inputs.host-arch}} -winsdk=10.0.19041.0"
+          
+          echo "::group::configure by cmake"
           $Env:CC = "cl"
           $Env:CXX = "cl"
-          cmake -Bbuild -GNinja `
+          cmake -Bbuild.clang+lld -GNinja `
           -DCMAKE_SYSTEM_VERSION="10.0.19041.0" `
           -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreadedDLL `
           -DCMAKE_BUILD_TYPE=Release `
           -DCPACK_GENERATOR=ZIP `
-          -DCPACK_PACKAGE_NAME="llvm.clang+lld.windows.${{inputs.host-arch}}_${{inputs.target-arch}}" `
+          -DCPACK_PACKAGE_NAME="llvm.clang+lld.${{inputs.target-arch}}" `
           -DLLVM_USE_CRT_RELEASE=MT `
           "-DCMAKE_INSTALL_PREFIX=$pwd\\prefix" `
           -DLLVM_TARGETS_TO_BUILD="${{inputs.llvm-targets}}" `
           -DLLVM_ENABLE_PROJECTS="clang;lld" llvm
-          cmake --build build --clean-first -- -j 16
+          echo "::endgroup::"
+          
+          echo "::group::building clang"
+          cmake --build build.clang+lld --clean-first -- -j 16
+          echo "::endgroup::"
+
+      - name: Build llvm lld
+        run: |
+          $vsPath = (vswhere -latest -property installationPath)
+          Import-Module (Join-Path $vsPath "Common7\Tools\Microsoft.VisualStudio.DevShell.dll")
+          Enter-VsDevShell -VsInstallPath $vsPath -SkipAutomaticLocation -DevCmdArguments "-arch=${{inputs.target-arch}} -host_arch=${{inputs.host-arch}} -winsdk=10.0.19041.0"
+          
+          echo "::group::reuse the vcpkg"
+          $Env:CMAKE_TOOLCHAIN_FILE = "$pwd/vcpkg/scripts/buildsystems/vcpkg.cmake"
+          echo "::endgroup::"
+
+          echo "::group::configure by cmake"
+          $Env:CC = "cl"
+          $Env:CXX = "cl"
+          cmake -Bbuild.lld -GNinja `
+          -DCMAKE_SYSTEM_VERSION="10.0.19041.0" `
+          -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreadedDLL `
+          -DCMAKE_BUILD_TYPE=Release `
+          -DCPACK_GENERATOR=ZIP `
+          -DCPACK_PACKAGE_NAME="llvm.lld.${{inputs.target-arch}}" `
+          -DLLVM_USE_CRT_RELEASE=MT `
+          "-DCMAKE_INSTALL_PREFIX=$pwd\\prefix" `
+          -DLLVM_TARGETS_TO_BUILD="${{inputs.llvm-targets}}" `
+          -DLLVM_ENABLE_PROJECTS="lld" src\\llvm
+          echo "::endgroup::"
+          
+          echo "::group::building lld"
+          cmake --build build.lld --clean-first -- -j 16
+          echo "::endgroup::"
 
       - name: Package llvm
         run: |
-          cmake --build build --target package
+          cmake --build build.clang+lld --target package
+          cmake --build build.lld --target package
 
       - name: Content list
         run: |
-          ls ./build
+          echo "::group::clang+lld"
+          ls ./build.clang+lld
+          echo "::endgroup::"
+
+          echo "::group::lld"
+          ls ./build.lld
+          echo "::endgroup::"
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v2
         with:
           name: llvm
-          path: build/*.zip
+          path: |
+            build.clang+lld/llvm.clang+lld.*.zip
+            build.lld/llvm.lld*.zip
           retention-days: 5
-
-  # buildLldOnly:
-  #   name: Build llvm on Windows with lld only
-  #   runs-on: windows-latest
-  #   steps:
-  #     - name: Install dependency
-  #       uses: crazy-max/ghaction-chocolatey@v1
-  #       with:
-  #         args: install cmake ninja vswhere
-
-  #     - uses: GuillaumeFalourd/setup-windows10-sdk-action@v1
-  #       with:
-  #         sdk-version: 19041
-
-  #     - name: Build llvm
-  #       run: |
-  #         $vsPath = (vswhere -latest -property installationPath)
-  #         Import-Module (Join-Path $vsPath "Common7\Tools\Microsoft.VisualStudio.DevShell.dll")
-  #         Enter-VsDevShell -VsInstallPath $vsPath -SkipAutomaticLocation -DevCmdArguments "-arch=${{inputs.target-arch}} -host_arch=${{inputs.host-arch}} -winsdk=10.0.19041.0"
-  #         $Env:CC = "cl"
-  #         $Env:CXX = "cl"
-  #         git clone --branch llvmorg-13.0.0 --depth 1 https://github.com/llvm/llvm-project.git
-  #         cmake -Bbuild -GNinja `
-  #         -DCMAKE_SYSTEM_VERSION="10.0.19041.0" `
-  #         -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreadedDLL `
-  #         -DCMAKE_BUILD_TYPE=Release `
-  #         -DCPACK_GENERATOR=ZIP `
-  #         "-DCMAKE_INSTALL_PREFIX=$pwd\\prefix" `
-  #         -DLLVM_TARGETS_TO_BUILD="${{inputs.llvm-targets}}" `
-  #         -DLLVM_ENABLE_PROJECTS="lld" llvm-project\\llvm
-  #         cmake --build build
-
-  #     - name: Package llvm
-  #       run: |
-  #         cmake --build build --target package
-
-  #     - name: Upload Artifact
-  #       uses: actions/upload-artifact@v2
-  #       with:
-  #         name: llvm
-  #         path: build/*.zip
-  #         retention-days: 5
