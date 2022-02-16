@@ -1,6 +1,30 @@
 name: build_llvm
 
 on:
+  workflow_dispatch:
+    inputs:
+      hostArch:
+        description: 'Arch of build host'
+        required: false
+        default: x64
+        type: choice
+        options:
+          - x86
+          - x64
+      targetArch:
+        description: 'Arch of target to build'
+        required: true
+        default: x64
+        type: choice
+        options:
+          - x86
+          - x64
+      llvmTargets:
+        description: "llvm targets to build (use ';' to split)"
+        type: string
+        default: X86
+        required: false
+
   workflow_call:
     inputs:
       host-arch:
@@ -18,10 +42,47 @@ on:
         type: string
         default: X86
         required: false
-
+env:
+  llvm_ver: 13.0.0
+  target_arch: x64
+  host_arch: x64
+  llvm_targets: X86
+  modifier: 'none'
 jobs:
-  build_withClang:
+  build_prepare:
+    name: Prepareing before build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Processing workflow call
+        if: ${{ github.event_name == 'workflow_call' }}
+        run: |
+          echo ::group::workflow_call param preparing
+          echo ::endgroup::
+        env:
+          modifier: 'workflow_call'
+          target_arch: ${{ inputs.target-arch }}
+          host_arch: ${{ inputs.host-arch }}
+          llvm_targets: ${{ inputs.llvm-targets }}
+
+      - name: Processing workflow dispatch
+        if: ${{ github.event_name == 'workflow_dispatch' }}
+        run: |
+          echo ::group::workflow_dispatch param preparing
+          echo ::endgroup::
+        env:
+          modifier: 'workflow_dispatch'
+          target_arch: ${{ github.event.inputs.targetArch }}
+          host_arch: ${{ github.event.inputs.hostArch }}
+          llvm_targets: ${{ github.event.inputs.llvmTargets }}
+
+      - name: Showing Environment
+        run: |
+          cat ${{github.env}} 
+
+  build:
     name: Build llvm on Windows with Clang
+    needs:
+      - build_prepare
     runs-on: windows-latest
     steps:
       - name: Install dependency
@@ -39,76 +100,74 @@ jobs:
       - uses: actions/checkout@v2
         with:
           repository: 'llvm/llvm-project'
-          ref: 'llvmorg-13.0.0'
+          ref: 'llvmorg-${{env.llvm_ver}}'
           fetch-depth: '1'
 
       - name: Build llvm clang+lld
         run: |
           $vsPath = (vswhere -latest -property installationPath)
           Import-Module (Join-Path $vsPath "Common7\Tools\Microsoft.VisualStudio.DevShell.dll")
-          Enter-VsDevShell -VsInstallPath $vsPath -SkipAutomaticLocation -DevCmdArguments "-arch=${{inputs.target-arch}} -host_arch=${{inputs.host-arch}} -winsdk=10.0.19041.0"
+          Enter-VsDevShell -VsInstallPath $vsPath -SkipAutomaticLocation -DevCmdArguments "-arch=${{env.target_arch}} -host_arch=${{env.host_arch}} -winsdk=10.0.19041.0"
           
-          echo "::group::configure by cmake"
+          echo "::group::configure by cmake (modified by${{env.modifier}})"
           $Env:CC = "cl"
           $Env:CXX = "cl"
-          cmake -Bbuild.clang+lld -GNinja `
+          cmake -Bbuild-clang+lld -GNinja `
           -DCMAKE_SYSTEM_VERSION="10.0.19041.0" `
           -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreadedDLL `
           -DCMAKE_BUILD_TYPE=Release `
           -DCPACK_GENERATOR=ZIP `
-          -DCPACK_PACKAGE_NAME="llvm.clang+lld.${{inputs.target-arch}}" `
+          -DCPACK_PACKAGE_NAME="llvm.clang+lld.${{env.target_arch}}" `
           -DLLVM_USE_CRT_RELEASE=MT `
+          -DLLVM_INSTALL_TOOLCHAIN_ONLY=ON `
           "-DCMAKE_INSTALL_PREFIX=$pwd\\prefix" `
-          -DLLVM_TARGETS_TO_BUILD="${{inputs.llvm-targets}}" `
+          -DLLVM_TARGETS_TO_BUILD="${{env.llvm_targets}}" `
           -DLLVM_ENABLE_PROJECTS="clang;lld" llvm
           echo "::endgroup::"
           
           echo "::group::building clang"
-          cmake --build build.clang+lld --clean-first -- -j 16
+          cmake --build build-clang+lld --clean-first -- -j 16
           echo "::endgroup::"
 
       - name: Build llvm lld
         run: |
           $vsPath = (vswhere -latest -property installationPath)
           Import-Module (Join-Path $vsPath "Common7\Tools\Microsoft.VisualStudio.DevShell.dll")
-          Enter-VsDevShell -VsInstallPath $vsPath -SkipAutomaticLocation -DevCmdArguments "-arch=${{inputs.target-arch}} -host_arch=${{inputs.host-arch}} -winsdk=10.0.19041.0"
+          Enter-VsDevShell -VsInstallPath $vsPath -SkipAutomaticLocation -DevCmdArguments "-arch=${{env.target_arch}} -host_arch=${{env.host_arch}} -winsdk=10.0.19041.0"
           
-          echo "::group::reuse the vcpkg"
-          $Env:CMAKE_TOOLCHAIN_FILE = "$pwd/vcpkg/scripts/buildsystems/vcpkg.cmake"
-          echo "::endgroup::"
-
           echo "::group::configure by cmake"
           $Env:CC = "cl"
           $Env:CXX = "cl"
-          cmake -Bbuild.lld -GNinja `
+          cmake -Bbuild-lld -GNinja `
           -DCMAKE_SYSTEM_VERSION="10.0.19041.0" `
           -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreadedDLL `
           -DCMAKE_BUILD_TYPE=Release `
           -DCPACK_GENERATOR=ZIP `
-          -DCPACK_PACKAGE_NAME="llvm.lld.${{inputs.target-arch}}" `
+          -DCPACK_PACKAGE_NAME="llvm.lld.${{env.target_arch}}" `
           -DLLVM_USE_CRT_RELEASE=MT `
+          -DLLVM_INSTALL_TOOLCHAIN_ONLY=ON `
           "-DCMAKE_INSTALL_PREFIX=$pwd\\prefix" `
-          -DLLVM_TARGETS_TO_BUILD="${{inputs.llvm-targets}}" `
-          -DLLVM_ENABLE_PROJECTS="lld" src\\llvm
+          -DLLVM_TARGETS_TO_BUILD="${{env.llvm_targets}}" `
+          -DLLVM_ENABLE_PROJECTS="lld" llvm
           echo "::endgroup::"
           
           echo "::group::building lld"
-          cmake --build build.lld --clean-first -- -j 16
+          cmake --build build-lld --clean-first -- -j 16
           echo "::endgroup::"
 
       - name: Package llvm
         run: |
-          cmake --build build.clang+lld --target package
-          cmake --build build.lld --target package
+          cmake --build build-clang+lld --target package
+          cmake --build build-lld --target package
 
       - name: Content list
         run: |
           echo "::group::clang+lld"
-          ls ./build.clang+lld
+          ls ./build-clang+lld
           echo "::endgroup::"
 
           echo "::group::lld"
-          ls ./build.lld
+          ls ./build-lld
           echo "::endgroup::"
 
       - name: Upload Artifact
@@ -116,6 +175,6 @@ jobs:
         with:
           name: llvm
           path: |
-            build.clang+lld/llvm.clang+lld.*.zip
-            build.lld/llvm.lld*.zip
+            build-clang+lld/llvm.clang+lld.*.zip
+            build-lld/llvm.lld*.zip
           retention-days: 5
