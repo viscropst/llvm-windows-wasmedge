@@ -27,6 +27,11 @@ on:
 
   workflow_call:
     inputs:
+      modifier:
+       description: the modifier to stats initial calling
+       type: string
+       default: none
+       required: true
       host-arch:
         description: the host arch to build
         type: string
@@ -44,47 +49,84 @@ on:
         required: false
 env:
   llvm_ver: 13.0.0
-  target_arch: x64
-  host_arch: x64
-  llvm_targets: X86
-  modifier: 'none'
+  
 jobs:
   build_prepare:
     name: Prepareing before build
     runs-on: ubuntu-latest
+    env:
+      target_arch: x64
+      host_arch: x64
+      llvm_targets: X86
+      modifier: none
+    outputs:
+      target_arch: ${{steps.value_sets.outputs.target_arch}}
+      host_arch: ${{steps.value_sets.outputs.host_arch}}
+      llvm_targets: ${{steps.value_sets.outputs.llvm_targets}}
+      modifier: ${{steps.value_sets.outputs.modifier}}
+
     steps:
+      - name: Processing workflow call with modifier
+        if: ${{ inputs.modifier != 'none' }}
+        run: |
+          echo ::group::workflow_call with modifier param preparing
+          echo "modifier=call_${{ inputs.modifier }}" >> $GITHUB_ENV
+          echo "target_arch=${{ inputs.target-arch }}" >> $GITHUB_ENV
+          echo "host_arch=${{ inputs.host-arch }}" >> $GITHUB_ENV
+          echo "llvm_targets=${{ inputs.llvm-targets }}" >> $GITHUB_ENV
+          echo ::endgroup::
+      
       - name: Processing workflow call
         if: ${{ github.event_name == 'workflow_call' }}
         run: |
           echo ::group::workflow_call param preparing
+          echo "modifier=workflow_call" >> $GITHUB_ENV
+          echo "target_arch=${{ inputs.target-arch }}" >> $GITHUB_ENV
+          echo "host_arch=${{ inputs.host-arch }}" >> $GITHUB_ENV
+          echo "llvm_targets=${{ inputs.llvm-targets }}" >> $GITHUB_ENV
           echo ::endgroup::
-        env:
-          modifier: 'workflow_call'
-          target_arch: ${{ inputs.target-arch }}
-          host_arch: ${{ inputs.host-arch }}
-          llvm_targets: ${{ inputs.llvm-targets }}
 
       - name: Processing workflow dispatch
         if: ${{ github.event_name == 'workflow_dispatch' }}
         run: |
           echo ::group::workflow_dispatch param preparing
+          echo "modifier=workflow_dispatch" >> $GITHUB_ENV
+          echo "target_arch=${{ github.event.inputs.targetArch }}" >> $GITHUB_ENV
+          echo "host_arch=${{ github.event.inputs.hostArch }}" >> $GITHUB_ENV
+          echo "llvm_targets${{ github.event.inputs.llvmTargets }}" >> $GITHUB_ENV                                   
           echo ::endgroup::
-        env:
-          modifier: 'workflow_dispatch'
-          target_arch: ${{ github.event.inputs.targetArch }}
-          host_arch: ${{ github.event.inputs.hostArch }}
-          llvm_targets: ${{ github.event.inputs.llvmTargets }}
+
+      - name: Setting Output
+        id: value_sets
+        run: |
+          echo ::group::workflow_dispatch param preparing
+          echo ::set-output name=modifier::${{ env.modifier }}
+          echo ::set-output name=target_arch::${{ env.target_arch }}
+          echo ::set-output name=host_arch::${{ env.host_arch }}
+          echo ::set-output name=llvm_targets::${{ env.llvm_targets }}                                   
+          echo ::endgroup::
 
       - name: Showing Environment
         run: |
           echo ${{github.event_name}}
-          cat ${{github.env}} 
+          cat ${{github.env}}
+      
+      - name: Check if None of modifier
+        if: ${{ env.modifier == 'none' }}
+        run: |
+          echo cannot build with none of modifier
+          exit 1 
 
   build:
     name: Build llvm on Windows with Clang
     needs:
       - build_prepare
     runs-on: windows-latest
+    env:
+      modifier: ${{needs.build_prepare.outputs.modifier}}
+      target_arch: ${{needs.build_prepare.outputs.target_arch}}
+      host_arch: ${{needs.build_prepare.outputs.host_arch}}
+      llvm_targets: ${{needs.build_prepare.outputs.llvm_targets}}
     steps:
       - name: Install dependency
         uses: crazy-max/ghaction-chocolatey@v1
@@ -110,7 +152,7 @@ jobs:
           Import-Module (Join-Path $vsPath "Common7\Tools\Microsoft.VisualStudio.DevShell.dll")
           Enter-VsDevShell -VsInstallPath $vsPath -SkipAutomaticLocation -DevCmdArguments "-arch=${{env.target_arch}} -host_arch=${{env.host_arch}} -winsdk=10.0.19041.0"
           
-          echo "::group::configure by cmake (modified by${{env.modifier}})"
+          echo "::group::configure by cmake (modified by ${{env.modifier}})"
           $Env:CC = "cl"
           $Env:CXX = "cl"
           cmake -Bbuild-clang+lld -GNinja `

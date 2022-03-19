@@ -17,4 +17,5 @@ jobs:
     uses: ./.github/workflows/build_llvm.yml
     with:
       host-arch: x64
+      modifier: build-only
       target-arch: x64
