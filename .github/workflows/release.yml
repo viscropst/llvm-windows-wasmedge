@@ -1,0 +1,50 @@
+name: Release
+
+concurrency:
+  group: build-${{ github.head_ref }}
+  cancel-in-progress: true
+
+on:
+  push:
+    tags:
+      - "llvmorg-*"
+
+jobs:
+  tag2ver:
+    outputs:
+      ver: ${{steps.result.outputs.ver}}
+    runs-on: ubuntu-latest
+    steps:
+      - id: result
+        run: |
+         tag_name=${{ github.ref_name }}
+         echo ::set-output name=ver::${tag_name#llvmorg-}
+
+  build:
+    needs:
+      - tag2ver
+    uses: ./.github/workflows/build_llvm.yml
+    with:
+      host-arch: x64
+      modifier: release
+      target-arch: x64
+      llvm-ver: ${{needs.tag2ver.outputs.ver}}
+
+  upload_release:
+    needs:
+      - build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v3
+        with:
+          name: llvm
+      - uses: softprops/action-gh-release@v1
+        with:
+          name: WasmEdge ${{github.ref_name}}
+          body: LLVM Toolchain ${{github.ref_name}} for WasmEdge
+          tag_name: ${{github.ref_name}}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          files: |
+            build-clang+lld/llvm.clang+lld.*.zip
+            build-lld/llvm.lld.*.zip
+  

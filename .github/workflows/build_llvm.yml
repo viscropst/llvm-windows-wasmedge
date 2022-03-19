@@ -24,6 +24,11 @@ on:
         type: string
         default: X86
         required: false
+      llvmVer:
+        description: llvm version to build
+        type: string
+        default: none
+        required: false
 
   workflow_call:
     inputs:
@@ -47,23 +52,28 @@ on:
         type: string
         default: X86
         required: false
-env:
-  llvm_ver: 13.0.0
+      llvm-ver:
+        description: llvm version to build
+        type: string
+        default: none
+        required: false
   
 jobs:
   build_prepare:
     name: Prepareing before build
     runs-on: ubuntu-latest
     env:
+      modifier: none
       target_arch: x64
       host_arch: x64
       llvm_targets: X86
-      modifier: none
+      llvm_ver: none
     outputs:
+      modifier: ${{steps.value_sets.outputs.modifier}}
       target_arch: ${{steps.value_sets.outputs.target_arch}}
       host_arch: ${{steps.value_sets.outputs.host_arch}}
       llvm_targets: ${{steps.value_sets.outputs.llvm_targets}}
-      modifier: ${{steps.value_sets.outputs.modifier}}
+      llvm_ver: ${{steps.value_sets.outputs.llvm_ver}}
 
     steps:
       - name: Processing workflow call with modifier
@@ -74,6 +84,7 @@ jobs:
           echo "target_arch=${{ inputs.target-arch }}" >> $GITHUB_ENV
           echo "host_arch=${{ inputs.host-arch }}" >> $GITHUB_ENV
           echo "llvm_targets=${{ inputs.llvm-targets }}" >> $GITHUB_ENV
+          echo "llvm_ver=${{ inputs.llvm-ver }}" >> $GITHUB_ENV
           echo ::endgroup::
       
       - name: Processing workflow call
@@ -84,6 +95,7 @@ jobs:
           echo "target_arch=${{ inputs.target-arch }}" >> $GITHUB_ENV
           echo "host_arch=${{ inputs.host-arch }}" >> $GITHUB_ENV
           echo "llvm_targets=${{ inputs.llvm-targets }}" >> $GITHUB_ENV
+          echo "llvm_ver=${{ inputs.llvm-ver }}" >> $GITHUB_ENV
           echo ::endgroup::
 
       - name: Processing workflow dispatch
@@ -93,8 +105,14 @@ jobs:
           echo "modifier=workflow_dispatch" >> $GITHUB_ENV
           echo "target_arch=${{ github.event.inputs.targetArch }}" >> $GITHUB_ENV
           echo "host_arch=${{ github.event.inputs.hostArch }}" >> $GITHUB_ENV
-          echo "llvm_targets${{ github.event.inputs.llvmTargets }}" >> $GITHUB_ENV                                   
+          echo "llvm_targets=${{ github.event.inputs.llvmTargets }}" >> $GITHUB_ENV                                   
+          echo "llvm_ver=${{ github.event.inputs.llvmVer }}" >> $GITHUB_ENV                                   
           echo ::endgroup::
+      
+      - name: Check if has modifier llvm version
+        if: ${{ env.llvm_ver == 'none' }}
+        run: |
+          echo "llvm_ver=13.0.0" >> $GITHUB_ENV
 
       - name: Setting Output
         id: value_sets
@@ -104,6 +122,7 @@ jobs:
           echo ::set-output name=target_arch::${{ env.target_arch }}
           echo ::set-output name=host_arch::${{ env.host_arch }}
           echo ::set-output name=llvm_targets::${{ env.llvm_targets }}                                   
+          echo ::set-output name=llvm_ver::${{ env.llvm_ver }}                                   
           echo ::endgroup::
 
       - name: Showing Environment
@@ -127,6 +146,7 @@ jobs:
       target_arch: ${{needs.build_prepare.outputs.target_arch}}
       host_arch: ${{needs.build_prepare.outputs.host_arch}}
       llvm_targets: ${{needs.build_prepare.outputs.llvm_targets}}
+      llvm_ver: ${{needs.build_prepare.outputs.llvm_ver}}
     steps:
       - name: Install dependency
         uses: crazy-max/ghaction-chocolatey@v1
@@ -153,8 +173,8 @@ jobs:
           Enter-VsDevShell -VsInstallPath $vsPath -SkipAutomaticLocation -DevCmdArguments "-arch=${{env.target_arch}} -host_arch=${{env.host_arch}} -winsdk=10.0.19041.0"
           
           echo "::group::configure by cmake (modified by ${{env.modifier}})"
-          $Env:CC = "cl"
-          $Env:CXX = "cl"
+          $Env:CC = "clang-cl"
+          $Env:CXX = "clang-cl"
           cmake -Bbuild-clang+lld -GNinja `
           -DCMAKE_SYSTEM_VERSION="10.0.19041.0" `
           -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreadedDLL `
@@ -179,8 +199,8 @@ jobs:
           Enter-VsDevShell -VsInstallPath $vsPath -SkipAutomaticLocation -DevCmdArguments "-arch=${{env.target_arch}} -host_arch=${{env.host_arch}} -winsdk=10.0.19041.0"
           
           echo "::group::configure by cmake"
-          $Env:CC = "cl"
-          $Env:CXX = "cl"
+          $Env:CC = "clang-cl"
+          $Env:CXX = "clang-cl"
           cmake -Bbuild-lld -GNinja `
           -DCMAKE_SYSTEM_VERSION="10.0.19041.0" `
           -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreadedDLL `
