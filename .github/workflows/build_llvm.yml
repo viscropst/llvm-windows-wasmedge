@@ -211,7 +211,7 @@ jobs:
           -DLLVM_INSTALL_TOOLCHAIN_ONLY=ON `
           "-DCMAKE_INSTALL_PREFIX=$pwd\\prefix" `
           -DLLVM_TARGETS_TO_BUILD="${{env.llvm_targets}}" `
-          -DLLVM_ENABLE_PROJECTS="clang;lld;clang-extra" llvm
+          -DLLVM_ENABLE_PROJECTS="clang;lld;clang-tools-extra" llvm
           echo "::endgroup::"
           
           echo "::group::building clang"
@@ -237,7 +237,7 @@ jobs:
           -DLLVM_INSTALL_TOOLCHAIN_ONLY=ON `
           "-DCMAKE_INSTALL_PREFIX=$pwd\\prefix" `
           -DLLVM_TARGETS_TO_BUILD="${{env.llvm_targets}}" `
-          -DLLVM_ENABLE_PROJECTS="lld;clang-extra" llvm
+          -DLLVM_ENABLE_PROJECTS="lld;clang-tools-extra" llvm
           echo "::endgroup::"
           
           echo "::group::building lld"
